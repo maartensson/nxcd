@@ -20,7 +20,11 @@
       program = "${self.packages.${system}.default}/bin/nxcd";
     };
   }) // {
-    nixosModules.default = {config, lib, pkgs, ...}: {
+    nixosModules.default = {config, lib, pkgs, ...}: let 
+      system = pkgs.stdenv.hostPlatform.system;
+      nxcd = self.packages.${system}.default;
+      cfg = config.services.nxcd;
+    in {
       options.services.nxcd = {
         enable = lib.mkEnableOption "Enable nxcd dns control service";
 
@@ -101,35 +105,35 @@
         };
       };
 
-      config = lib.mkIf config.services.nxcd.enable {
+      config = lib.mkIf cfg.enable {
         systemd.services.nxcd = {
           description = "Exposes nxcd nix deployment service";
           wantedBy = ["multi-user.target"];
           after = ["network.target"];
           serviceConfig = {
-            ExecStart = "${self.packages.${pkgs.system}.default}/bin/nxcd";
+            ExecStart = "${nxcd}/bin/nxcd";
             Restart = "always";
             Type = "simple";
             DynamicUser = "yes";
             LoadCredential = 
-              lib.optional (config.services.nxcd.private-key-raw != null) "ssh_key:${toString config.services.nxcd.private-key-raw}"
+              lib.optional (cfg.private-key-raw != null) "ssh_key:${toString cfg.private-key-raw}"
               ++ 
-              lib.optional (config.services.nxcd.configFile != null) "config:${toString config.services.nxcd.configFile}";
+              lib.optional (cfg.configFile != null) "config:${toString cfg.configFile}";
             Environment = [ "NIXOS_REBUILD=${pkgs.nixos-rebuild}/bin/nixos-rebuild" ] ++
-              (if (config.services.nxcd.configFile != null) then 
+              (if (cfg.configFile != null) then 
                 [ "APP_CONFIG=/run/credentials/%N.service/config" ]
               else
               [
                 "GIT_SSH_PRIVATE_KEY_PATH=/run/credentials/%N.service/ssh_key"
-                "GIT_REPO=${toString config.services.nxcd.repo}"
-                "GIT_BRANCH=${toString config.services.nxcd.branch}"
-                "HOST=${toString config.services.nxcd.host}"
-                "POLL_DURATION=${toString config.services.nxcd.poll_duration}"
-                "MATRIX_ENABLED=${toString config.services.nxcd.matrix.enable}"
-                "MATRIX_HOMESERVER=${toString config.services.nxcd.matrix.homeserver}"
-                "MATRIX_USERNAME=${toString config.services.nxcd.matrix.username}"
-                "MATRIX_PASSWORD=${toString config.services.nxcd.matrix.password}"
-                "MATRIX_ROOMID=${toString config.services.nxcd.matrix.roomId}"
+                "GIT_REPO=${toString cfg.repo}"
+                "GIT_BRANCH=${toString cfg.branch}"
+                "HOST=${toString cfg.host}"
+                "POLL_DURATION=${toString cfg.poll_duration}"
+                "MATRIX_ENABLED=${toString cfg.matrix.enable}"
+                "MATRIX_HOMESERVER=${toString cfg.matrix.homeserver}"
+                "MATRIX_USERNAME=${toString cfg.matrix.username}"
+                "MATRIX_PASSWORD=${toString cfg.matrix.password}"
+                "MATRIX_ROOMID=${toString cfg.matrix.roomId}"
               ]);
           };
         };
